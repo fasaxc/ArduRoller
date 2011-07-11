@@ -111,12 +111,12 @@ ISR(TIMER1_OVF_vect)
     // Normal operation.  Integrate gyro to get tilt.  Add in the filtered
     // accelerometer value which approximates the absolute tilt, this gives
     // us an integral term to correct for drift in the gyro.
-    tilt += d_tilt + y_filt * 0.3;
+    tilt += d_tilt + y_filt * 0.6;
     tilt_int += tilt;
 
 #define D_TILT_FACT 3
-#define TILT_FACT 0.1
-#define TILT_INT_FACT 0.0001
+#define TILT_FACT 0.09
+#define TILT_INT_FACT 0.00015
 #define MAX_TILT_INT (255.0 / TILT_INT_FACT)
 
     if (tilt_int > MAX_TILT_INT)
@@ -139,7 +139,7 @@ ISR(TIMER1_OVF_vect)
   digitalWrite(dir_a, speed < 0 ? LOW : HIGH);  //Set motor direction, 1 low, 2 high
   digitalWrite(dir_b, speed < 0 ? LOW : HIGH);  //Set motor direction, 3 high, 4 low
 
-  speed = 8 * sqrt(abs(speed));
+  speed = 7 * sqrt(abs(speed));
   if (speed > 0xff)
   {
     speed = 0xff;
