@@ -25,7 +25,7 @@ const float Y_OFFSET = 9;    // More negative tilts forwards
 #define GAIN   1.013464636e+03
 
 // Allowances for mechanical differences in motors
-#define MOTOR_A_FACTOR 107 / 100
+#define MOTOR_A_FACTOR 1
 #define MOTOR_B_FACTOR 1
 
 static float filtery(float in)
