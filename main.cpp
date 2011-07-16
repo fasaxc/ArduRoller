@@ -5,13 +5,14 @@
 #include <avr/interrupt.h>
 #include <util/atomic.h>
 
-int pwm_a = 3;  //PWM control for motor outputs 1 and 2 is on digital pin 3
-int pwm_b = 11;  //PWM control for motor outputs 3 and 4 is on digital pin 11
-int dir_a = 12;  //direction control for motor outputs 1 and 2 is on digital pin 12
-int dir_b = 13;  //direction control for motor outputs 3 and 4 is on digital pin 13
-int x_pin = A0;
-int y_pin = A1;
-int gyro_pin = A2;
+const int led_pin = 7;
+const int pwm_a = 3;  //PWM control for motor outputs 1 and 2 is on digital pin 3
+const int pwm_b = 11;  //PWM control for motor outputs 3 and 4 is on digital pin 11
+const int dir_a = 12;  //direction control for motor outputs 1 and 2 is on digital pin 12
+const int dir_b = 13;  //direction control for motor outputs 3 and 4 is on digital pin 13
+const int x_pin = A0;
+const int y_pin = A1;
+const int gyro_pin = A2;
 
 const float GYRO_OFFSET = 4.36;
 const float Y_OFFSET = 9;    // More negative tilts forwards
@@ -114,10 +115,10 @@ ISR(TIMER1_OVF_vect)
     tilt += d_tilt + y_filt * 0.6;
     tilt_int += tilt;
 
-#define D_TILT_FACT 3
-#define TILT_FACT 0.09
-#define TILT_INT_FACT 0.00015
-#define MAX_TILT_INT (255.0 / TILT_INT_FACT)
+#define D_TILT_FACT 3.5
+#define TILT_FACT 0.025
+#define TILT_INT_FACT 0.002
+#define MAX_TILT_INT (300.0 / TILT_INT_FACT)
 
     if (tilt_int > MAX_TILT_INT)
     {
@@ -131,7 +132,6 @@ ISR(TIMER1_OVF_vect)
     speed = tilt * TILT_FACT +
             tilt_int * TILT_INT_FACT +
             d_tilt * D_TILT_FACT;
-    speed = filtergyro(speed);
 #endif
     last_speed = speed;
   }
