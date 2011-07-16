@@ -36,6 +36,8 @@ Assets
 The diagram for the chassis is in the assets directory.  I used Ponoko to 
 manufacture it in (2.7mm blonde bamboo).  
 
+<a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/3.0/"><img alt="Creative Commons License" style="border-width:0" src="http://i.creativecommons.org/l/by-nc-sa/3.0/88x31.png" /></a><br /><span xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/StillImage" property="dct:title" rel="dct:type">ArduRoller Chassis</span> by <span xmlns:cc="http://creativecommons.org/ns#" property="cc:attributionName">Shaun Crampton</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/3.0/">Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License</a>.
+
 *WARNING* It's prototype standard -- 
 I had to rebuild the motor mounts with Instamorph because they were too loose 
 in one direction and sand them heavily because they were too tight in the other.
