@@ -30,6 +30,12 @@ The code has 3 parts:
    The ISR is the main workhorse function.  It runs several hundred times per 
    second. 
 
+There are a lot of magic values in the code that took me considerable time to
+tune.  I also find that some of them aren't constant (e.g. the gyro drift 
+changes with temperature and battery voltage).  If you try to make one of these
+it'd probably be a good idea to pick my brains before you start or to use
+a more standard approach like a complementary filter.
+
 Assets
 ------
 
