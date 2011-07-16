@@ -14,8 +14,8 @@ const int x_pin = A0;
 const int y_pin = A1;
 const int gyro_pin = A2;
 
-const float GYRO_OFFSET = 4.36;
-const float Y_OFFSET = 9;    // More negative tilts forwards
+const float GYRO_OFFSET = 4.79;
+const float Y_OFFSET = 8;    // More negative tilts forwards
 
 //#define CALIBRATION
 
