@@ -5,6 +5,8 @@ This repo contains the source code and assets for my ArduRoller balance bot.
 
 <a href="http://www.flickr.com/photos/fasaxc/5932277215/" title="ArduRoller out for a spin by fasaxc, on Flickr"><img src="http://farm7.static.flickr.com/6014/5932277215_88f5a6aed2.jpg" width="333" height="500" alt="ArduRoller out for a spin"></a>
 
+<object type="application/x-shockwave-flash" width="400" height="225" data="http://www.flickr.com/apps/video/stewart.swf?v=71377" classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000"> <param name="flashvars" value="intl_lang=en-us&photo_secret=efd7f038e1&photo_id=5944650602"></param> <param name="movie" value="http://www.flickr.com/apps/video/stewart.swf?v=71377"></param> <param name="bgcolor" value="#000000"></param> <param name="allowFullScreen" value="true"></param><embed type="application/x-shockwave-flash" src="http://www.flickr.com/apps/video/stewart.swf?v=71377" bgcolor="#000000" allowfullscreen="true" flashvars="intl_lang=en-us&photo_secret=efd7f038e1&photo_id=5944650602" height="225" width="400"></embed></object>
+
 Specs:
 
 *  Chassis: laser cut 2.7mm bamboo ply (Ponoko); various M2.5 machine screws from Amazon; Instamorph low-melt-point thermoplastic to fill in the gaps.
