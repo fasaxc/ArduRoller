@@ -1,12 +1,11 @@
 ArduRoller
-----------
+==========
 
 This repo contains the source code and assets for my ArduRoller balance bot.
 
 <a href="http://www.flickr.com/photos/fasaxc/5932277215/" title="ArduRoller out for a spin by fasaxc, on Flickr"><img src="http://farm7.static.flickr.com/6014/5932277215_88f5a6aed2.jpg" width="333" height="500" alt="ArduRoller out for a spin"></a>
 
 Specs:
-------
 
 *  Chassis: laser cut 2.7mm bamboo ply (Ponoko); various M2.5 machine screws from Amazon; Instamorph low-melt-point thermoplastic to fill in the gaps.
 *  Brains: 1 x Arduino Uno
@@ -35,6 +34,8 @@ Assets
 ------
 
 The diagram for the chassis is in the assets directory.  I used Ponoko to 
-manufacture it in (2.7mm blonde bamboo).  *WARNING* It's prototype standard -- 
+manufacture it in (2.7mm blonde bamboo).  
+
+*WARNING* It's prototype standard -- 
 I had to rebuild the motor mounts with Instamorph because they were too loose 
 in one direction and sand them heavily because they were too tight in the other.
