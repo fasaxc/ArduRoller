@@ -20,11 +20,25 @@
 #include <avr/interrupt.h>
 #include <util/atomic.h>
 
-const int led_pin = 7;
-const int pwm_a = 3;  //PWM control for motor outputs 1 and 2 is on digital pin 3
-const int pwm_b = 11;  //PWM control for motor outputs 3 and 4 is on digital pin 11
-const int dir_a = 12;  //direction control for motor outputs 1 and 2 is on digital pin 12
-const int dir_b = 13;  //direction control for motor outputs 3 and 4 is on digital pin 13
+// Arduino has a 10-bit ADC, giving a range of 0-1023.
+#define ADC_RANGE (1024)
+
+// Calculate the scaling factor from gyro ADC reading to radians.
+#define GYRO_MAX_DEG_PER_SEC (150.0)
+#define GYRO_DEG_PER_ADC_UNIT (GYRO_MAX_DEG_PER_SEC * 2 / ADC_RANGE)
+#define GYRO_RAD_PER_ADC_UNIT (GYRO_DEG_PER_UNIT * 0.0174532925)
+
+// Calculate the scaling factor from ADC readings to g.  We use the g reading
+// from X-axis sensor as an approximation for the tilt angle (since, for small
+// angles sin(x) (which the accelerometer measures) is approximately equal to x.
+#define ACCEL_MAX_G (1.7)
+#define ACCEL_G_PER_ADC_UNIT (ACCEL_MAX_G * 2 / ADC_RANGE)
+
+// Pin definitions
+const int pwm_a = 3;   // PWM control for motor outputs 1 and 2 is on digital pin 3
+const int pwm_b = 11;  // PWM control for motor outputs 3 and 4 is on digital pin 11
+const int dir_a = 12;  // direction control for motor outputs 1 and 2 is on digital pin 12
+const int dir_b = 13;  // direction control for motor outputs 3 and 4 is on digital pin 13
 const int x_pin = A0;
 const int y_pin = A1;
 const int gyro_pin = A2;
@@ -158,8 +172,9 @@ ISR(TIMER1_OVF_vect)
     last_speed = speed;
   }
 
-  digitalWrite(dir_a, speed < 0 ? LOW : HIGH);  //Set motor direction, 1 low, 2 high
-  digitalWrite(dir_b, speed < 0 ? LOW : HIGH);  //Set motor direction, 3 high, 4 low
+  // Set the motor directions
+  digitalWrite(dir_a, speed < 0 ? LOW : HIGH);
+  digitalWrite(dir_b, speed < 0 ? LOW : HIGH);
 
   speed = 7 * sqrt(abs(speed));
   if (speed > 0xff)
