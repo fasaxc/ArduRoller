@@ -75,6 +75,15 @@ void myprintf(const char *fmt, ... ){
   Serial.print(tmp);
 }
 
+// Values read from the trim pots.
+static int d_tilt_pot = 512;
+static int tilt_pot = 512;
+static int gyro_offset_pot = 512;
+
+#define D_TILT_FACT ((3.5 / 512.0) * d_tilt_pot)
+#define TILT_FACT ((0.025 / 512.0) * tilt_pot)
+#define TILT_INT_FACT ((0.002 / 512.0) * 512.0)
+
 static int gyro_reading = 0;
 static int x_reading = 0;
 static int y_reading = 0;
@@ -92,11 +101,12 @@ ISR(TIMER1_OVF_vect)
   static float y_filt = 0;
   static float tilt_int = 0;
   static boolean reset_complete = false;
+  static long int loop_count = 0;
 
   // Read the gyro rate.
   RESET_TIMER1();
   gyro_reading = analogRead(gyro_pin);
-  d_tilt = (512 - gyro_reading + GYRO_OFFSET);
+  d_tilt = (512 - gyro_reading + ((gyro_offset_pot - 512) * 0.1));
 
   // Read the accelerometer
   x_reading = analogRead(x_pin);
@@ -130,9 +140,6 @@ ISR(TIMER1_OVF_vect)
     tilt += d_tilt + y_filt * 0.6;
     tilt_int += tilt;
 
-#define D_TILT_FACT 3.5
-#define TILT_FACT 0.025
-#define TILT_INT_FACT 0.002
 #define MAX_TILT_INT (300.0 / TILT_INT_FACT)
 
     if (tilt_int > MAX_TILT_INT)
@@ -174,6 +181,21 @@ ISR(TIMER1_OVF_vect)
 
   analogWrite(pwm_a, motor_a_speed);
   analogWrite(pwm_b, motor_b_speed);
+
+  if (loop_count == 500)
+  {
+    d_tilt_pot = analogRead(A3);
+  }
+  else if (loop_count == 1000)
+  {
+    tilt_pot = analogRead(A5);
+  }
+  else if (loop_count == 1500)
+  {
+    gyro_offset_pot = analogRead(A4);
+    loop_count = 0;
+  }
+  loop_count++;
 }
 
 void setup()
@@ -205,6 +227,8 @@ void loop()
   ATOMIC_BLOCK(ATOMIC_FORCEON)
   {
     myprintf("Gyro: %d, X: %d, Y: %d\r", gyro_reading, x_reading, y_reading);
+    myprintf("A3: %d, A4: %d, A5: %d\r", analogRead(A3), analogRead(A4), analogRead(A5));
   }
+  delay(500);
 #endif
 }
