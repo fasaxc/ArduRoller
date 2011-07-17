@@ -20,13 +20,14 @@
 #include <avr/interrupt.h>
 #include <util/atomic.h>
 
-// Arduino has a 10-bit ADC, giving a range of 0-1023.
+// Arduino has a 10-bit ADC, giving a range of 0-1023.  0 represents GND, 1023
+// represents Vcc - 1 LSB.  Hence, 512 is the midpoint.
 #define ADC_RANGE (1024)
 
 // Calculate the scaling factor from gyro ADC reading to radians.
 #define GYRO_MAX_DEG_PER_SEC (150.0)
 #define GYRO_DEG_PER_ADC_UNIT (GYRO_MAX_DEG_PER_SEC * 2 / ADC_RANGE)
-#define GYRO_RAD_PER_ADC_UNIT (GYRO_DEG_PER_UNIT * 0.0174532925)
+#define GYRO_RAD_PER_ADC_UNIT (GYRO_DEG_PER_ADC_UNIT * 0.0174532925)
 
 // Calculate the scaling factor from ADC readings to g.  We use the g reading
 // from X-axis sensor as an approximation for the tilt angle (since, for small
@@ -94,9 +95,9 @@ static int d_tilt_pot = 512;
 static int tilt_pot = 512;
 static int gyro_offset_pot = 512;
 
-#define D_TILT_FACT ((3.5 / 512.0) * d_tilt_pot)
-#define TILT_FACT ((0.025 / 512.0) * tilt_pot)
-#define TILT_INT_FACT ((0.002 / 512.0) * 512.0)
+#define D_TILT_FACT ((3.5 / 512.0) * d_tilt_pot / GYRO_RAD_PER_ADC_UNIT)
+#define TILT_FACT ((0.025 / 512.0) * tilt_pot / GYRO_RAD_PER_ADC_UNIT)
+#define TILT_INT_FACT ((0.002 / 512.0) * 512.0 / GYRO_RAD_PER_ADC_UNIT)
 
 static int gyro_reading = 0;
 static int x_reading = 0;
@@ -104,33 +105,39 @@ static int y_reading = 0;
 
 ISR(TIMER1_OVF_vect)
 {
-  float y;
-  float x;
-  float d_tilt;
+  float y_gs;
+  float x_gs;
+  float d_tilt_rads;
   float speed = 0;
   static float last_speed = 0;
   long int motor_a_speed = 0;
   long int motor_b_speed = 0;
-  static float tilt = 0;
-  static float x_filt = 0;
-  static float tilt_int = 0;
+  static float tilt_rads = 0;
+  static float x_filt_gs = 0;
+  static float tilt_int_rads = 0;
   static boolean reset_complete = false;
   static long int loop_count = 0;
 
-  // Read the gyro rate.
+  // Reset the timer before we do anything that might take a variable time so
+  // that we get invoked at a constant rate.
   RESET_TIMER1();
+
+  // Read the gyro rate.
   gyro_reading = analogRead(gyro_pin);
-  d_tilt = (512 - gyro_reading + ((gyro_offset_pot - 512) * 0.1));
 
   // Read the accelerometer
   x_reading = analogRead(x_pin);
   y_reading = analogRead(y_pin);
-  x = x_reading - 512 + X_OFFSET;
-  y = y_reading - 512;
 
-  x_filt = filterx(x);
+  // Convert to sensible units
+  float gyro_offset = ((gyro_offset_pot - 512) * 0.1);
+  d_tilt_rads =  GYRO_RAD_PER_ADC_UNIT * (512 - gyro_reading + gyro_offset);
+  x_gs = ACCEL_G_PER_ADC_UNIT * (x_reading - 512 + X_OFFSET);
+  y_gs = ACCEL_G_PER_ADC_UNIT * (y_reading - 512);
 
-  if (y < 30 && abs(x_filt) > 150)
+  x_filt_gs = filterx(x_gs);
+
+  if (y_gs < 0.1 && abs(x_filt_gs) > 0.6)
   {
     // We fell over! Shut off the motors.
     speed = 0;
@@ -139,10 +146,10 @@ ISR(TIMER1_OVF_vect)
   else if (!reset_complete)
   {
     // We've never been upright, wait until we're righted by the user.
-    if (-5 < x && x < 5)
+    if (-0.02 < x_gs && x_gs < 0.02)
     {
-      tilt = x;
-      tilt_int = 0;
+      tilt_rads = x_gs;
+      tilt_int_rads = 0;
       reset_complete = true;
     }
   }
@@ -151,23 +158,23 @@ ISR(TIMER1_OVF_vect)
     // Normal operation.  Integrate gyro to get tilt.  Add in the filtered
     // accelerometer value which approximates the absolute tilt, this gives
     // us an integral term to correct for drift in the gyro.
-    tilt += d_tilt + x_filt * 0.6;
-    tilt_int += tilt;
+    tilt_rads += d_tilt_rads  + x_filt_gs;
+    tilt_int_rads += tilt_rads;
 
-#define MAX_TILT_INT (300.0 / TILT_INT_FACT)
+#define MAX_TILT_INT (300.0 * GYRO_RAD_PER_ADC_UNIT / TILT_INT_FACT)
 
-    if (tilt_int > MAX_TILT_INT)
+    if (tilt_int_rads > MAX_TILT_INT)
     {
-      tilt_int = MAX_TILT_INT;
+      tilt_int_rads = MAX_TILT_INT;
     }
-    if (tilt_int < -MAX_TILT_INT)
+    if (tilt_int_rads < -MAX_TILT_INT)
     {
-      tilt_int = -MAX_TILT_INT;
+      tilt_int_rads = -MAX_TILT_INT;
     }
 #ifndef CALIBRATION
-    speed = tilt * TILT_FACT +
-            tilt_int * TILT_INT_FACT +
-            d_tilt * D_TILT_FACT;
+    speed = tilt_rads * TILT_FACT +
+            tilt_int_rads * TILT_INT_FACT +
+            d_tilt_rads * D_TILT_FACT;
 #endif
     last_speed = speed;
   }
