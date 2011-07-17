@@ -20,6 +20,10 @@
 #include <avr/interrupt.h>
 #include <util/atomic.h>
 
+#define TARGET_LOOP_HZ (1000)
+#define TICKS_PER_LOOP (F_CPU / TARGET_LOOP_HZ)
+#define TICK_SECONDS (TICKS_PER_LOOP / F_CPU)
+
 // Arduino has a 10-bit ADC, giving a range of 0-1023.  0 represents GND, 1023
 // represents Vcc - 1 LSB.  Hence, 512 is the midpoint.
 #define ADC_RANGE (1024)
@@ -48,8 +52,6 @@ const float GYRO_OFFSET = 4.79;
 const float X_OFFSET = 8;    // More negative tilts forwards
 
 //#define CALIBRATION
-
-#define RESET_TIMER1() TCNT1 = 0xC000
 
 #define NZEROS 2
 #define NPOLES 2
@@ -103,11 +105,19 @@ static int gyro_reading = 0;
 static int x_reading = 0;
 static int y_reading = 0;
 
-ISR(TIMER1_OVF_vect)
+static long int max_timer = 0;
+
+/**
+ * (Timer 1 == OCR1A) interrupt handler.  Called each time timer 1 hits the top
+ * value we set in OCR1A at start of day.
+ *
+ * The timer is automatically reset to 0 after it hits OCR1A.
+ */
+ISR(TIMER1_COMPA_vect)
 {
   float y_gs;
   float x_gs;
-  float d_tilt_rads;
+  float gyro_rads_per_sec;
   float speed = 0;
   static float last_speed = 0;
   long int motor_a_speed = 0;
@@ -118,20 +128,18 @@ ISR(TIMER1_OVF_vect)
   static boolean reset_complete = false;
   static long int loop_count = 0;
 
-  // Reset the timer before we do anything that might take a variable time so
-  // that we get invoked at a constant rate.
-  RESET_TIMER1();
+  // Read the inputs.  Each analog read should take about 0.12 msec.  We can't
+  // do too many analog reads per timer tick.
 
-  // Read the gyro rate.
+  // Gyro rate.
   gyro_reading = analogRead(gyro_pin);
-
-  // Read the accelerometer
+  // Accelerometer
   x_reading = analogRead(x_pin);
   y_reading = analogRead(y_pin);
 
   // Convert to sensible units
   float gyro_offset = ((gyro_offset_pot - 512) * 0.1);
-  d_tilt_rads =  GYRO_RAD_PER_ADC_UNIT * (512 - gyro_reading + gyro_offset);
+  gyro_rads_per_sec =  GYRO_RAD_PER_ADC_UNIT * (512 - gyro_reading + gyro_offset);
   x_gs = ACCEL_G_PER_ADC_UNIT * (x_reading - 512 + X_OFFSET);
   y_gs = ACCEL_G_PER_ADC_UNIT * (y_reading - 512);
 
@@ -158,7 +166,7 @@ ISR(TIMER1_OVF_vect)
     // Normal operation.  Integrate gyro to get tilt.  Add in the filtered
     // accelerometer value which approximates the absolute tilt, this gives
     // us an integral term to correct for drift in the gyro.
-    tilt_rads += d_tilt_rads  + x_filt_gs;
+    tilt_rads += gyro_rads_per_sec * TICK_SECONDS + x_filt_gs;
     tilt_int_rads += tilt_rads;
 
 #define MAX_TILT_INT (300.0 * GYRO_RAD_PER_ADC_UNIT / TILT_INT_FACT)
@@ -174,9 +182,14 @@ ISR(TIMER1_OVF_vect)
 #ifndef CALIBRATION
     speed = tilt_rads * TILT_FACT +
             tilt_int_rads * TILT_INT_FACT +
-            d_tilt_rads * D_TILT_FACT;
+            gyro_rads_per_sec * D_TILT_FACT;
 #endif
     last_speed = speed;
+
+    if (TCNT1 > max_timer)
+    {
+      max_timer = TCNT1;
+    }
   }
 
   // Set the motor directions
@@ -237,10 +250,14 @@ void setup()
   TCCR0B = (TCCR0B & 0xf8) | _BV(CS02);
   TCCR2B = (TCCR0B & 0xf8) | _BV(CS02);
 
-  // Timer1 used for accurate sampling time.
-  TCCR1B = _BV(CS10);   // Enable Timer 1; no prescaler
-  RESET_TIMER1();
-  TIMSK1 = _BV(TOIE1); // Enable Timer 1 overflow interrupt.
+  // We use Timer 1 as our accurate timebase.
+  // Set it to CTC mode so that we can configure its TOP value in OCR1A.
+  OCR1A = TICKS_PER_LOOP;
+  TCCR1A = 0;
+  TCCR1B = _BV(WGM12) | _BV(CS10);
+  TIMSK1 = _BV(OCIE1A);           // Enable (Timer 1 == OCR1A) interrupt.
+
+  // Enable interrupts
   sei();
 }
 void loop()
