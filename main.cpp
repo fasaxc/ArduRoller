@@ -44,7 +44,7 @@ const int y_pin = A1;
 const int gyro_pin = A2;
 
 const float GYRO_OFFSET = 4.79;
-const float Y_OFFSET = 8;    // More negative tilts forwards
+const float X_OFFSET = 8;    // More negative tilts forwards
 
 //#define CALIBRATION
 
@@ -58,7 +58,7 @@ const float Y_OFFSET = 8;    // More negative tilts forwards
 #define MOTOR_A_FACTOR 1
 #define MOTOR_B_FACTOR 1
 
-static float filtery(float in)
+static float filterx(float in)
 {
   static float xv[NZEROS+1], yv[NPOLES+1];
   xv[0] = xv[1]; xv[1] = xv[2];
@@ -112,7 +112,7 @@ ISR(TIMER1_OVF_vect)
   long int motor_a_speed = 0;
   long int motor_b_speed = 0;
   static float tilt = 0;
-  static float y_filt = 0;
+  static float x_filt = 0;
   static float tilt_int = 0;
   static boolean reset_complete = false;
   static long int loop_count = 0;
@@ -125,12 +125,12 @@ ISR(TIMER1_OVF_vect)
   // Read the accelerometer
   x_reading = analogRead(x_pin);
   y_reading = analogRead(y_pin);
-  y = x_reading - 512 + Y_OFFSET;
-  x = y_reading - 512;
+  x = x_reading - 512 + X_OFFSET;
+  y = y_reading - 512;
 
-  y_filt = filtery(y);
+  x_filt = filterx(x);
 
-  if (x < 30 && abs(y_filt) > 150)
+  if (y < 30 && abs(x_filt) > 150)
   {
     // We fell over! Shut off the motors.
     speed = 0;
@@ -139,9 +139,9 @@ ISR(TIMER1_OVF_vect)
   else if (!reset_complete)
   {
     // We've never been upright, wait until we're righted by the user.
-    if (-5 < y && y < 5)
+    if (-5 < x && x < 5)
     {
-      tilt = y;
+      tilt = x;
       tilt_int = 0;
       reset_complete = true;
     }
@@ -151,7 +151,7 @@ ISR(TIMER1_OVF_vect)
     // Normal operation.  Integrate gyro to get tilt.  Add in the filtered
     // accelerometer value which approximates the absolute tilt, this gives
     // us an integral term to correct for drift in the gyro.
-    tilt += d_tilt + y_filt * 0.6;
+    tilt += d_tilt + x_filt * 0.6;
     tilt_int += tilt;
 
 #define MAX_TILT_INT (300.0 / TILT_INT_FACT)

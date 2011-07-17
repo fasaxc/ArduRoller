@@ -45,7 +45,7 @@
 								<option id="de.innot.avreclipse.cppcompiler.option.incpath.881439997" name="Include Paths (-I)" superClass="de.innot.avreclipse.cppcompiler.option.incpath" valueType="includePath">
 									<listOptionValue builtIn="false" value="/home/shaun/opt/arduino-0022/hardware/arduino/cores/arduino"/>
 								</option>
-								<option id="de.innot.avreclipse.cppcompiler.option.optimize.other.1971223590" name="Other Optimization Flags" superClass="de.innot.avreclipse.cppcompiler.option.optimize.other" value="-ffunction-sections -fdata-sections -Wl,--gc-sections" valueType="string"/>
+								<option id="de.innot.avreclipse.cppcompiler.option.optimize.other.1971223590" name="Other Optimization Flags" superClass="de.innot.avreclipse.cppcompiler.option.optimize.other" value="-ffunction-sections -fdata-sections -ffast-math -Wl,--gc-sections" valueType="string"/>
 								<inputType id="de.innot.avreclipse.cppcompiler.input.317572352" superClass="de.innot.avreclipse.cppcompiler.input"/>
 							</tool>
 							<tool id="de.innot.avreclipse.tool.linker.winavr.app.debug.457053608" name="AVR C Linker" superClass="de.innot.avreclipse.tool.linker.winavr.app.debug"/>
