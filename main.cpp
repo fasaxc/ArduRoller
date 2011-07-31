@@ -29,7 +29,8 @@
 #define ADC_RANGE (1024)
 #define ADC_HALF_RANGE (512)
 
-// Calculate the scaling factor from gyro ADC reading to radians.
+// Calculate the scaling factor from gyro ADC reading to radians.  The gyro is
+// ratiometric with Vs but it doesn't use the full range.
 #define V_PER_ADC_UNIT (5.0 / ADC_RANGE)
 #define GYRO_MAX_DEG_PER_SEC (150.0)
 #define GYRO_V_PER_DEG_PER_SEC (12.5 / 1000.0)
@@ -43,8 +44,8 @@
 //
 // The accelerometer is ratiometric with Vs but it doesn't use the full range
 // from GND to Vs.  At 5V, it reads about 1V per g.
-#define ACCEL_VS_PER_G (1.080 / 5.0)
-#define ACCEL_G_PER_ADC_UNIT (1.0 / (ADC_RANGE * ACCEL_VS_PER_G))
+#define ACCEL_V_PER_G (1.011)
+#define ACCEL_G_PER_ADC_UNIT (V_PER_ADC_UNIT / ACCEL_V_PER_G)
 
 // Pin definitions
 const int led_pin = 7;
@@ -56,7 +57,7 @@ const int x_pin = A0;
 const int y_pin = A1;
 const int gyro_pin = A2;
 
-const float GYRO_OFFSET = 4.79;
+const float GYRO_OFFSET = 3.982;
 const float X_OFFSET = 8;    // More negative tilts forwards
 
 //#define CALIBRATION
@@ -79,7 +80,7 @@ static float filterx(float in)
   xv[2] = in / 1.058546241e+03;
   yv[0] = yv[1]; yv[1] = yv[2];
   yv[2] = (xv[0] + xv[2]) + 2 * xv[1]
-                                   + ( -0.9149758348 * yv[0]) + (  1.9111970674 * yv[1]);
+                          + ( -0.9149758348 * yv[0]) + (  1.9111970674 * yv[1]);
   return yv[2];
 }
 
@@ -108,7 +109,7 @@ void myprintf(const char *fmt, ... ){
 
 // Values read from the trim pots.
 static int d_tilt_pot = 512;
-static int tilt_pot = 512;
+static int x_offset_pot = 512;
 static int gyro_offset_pot = 512;
 
 static int gyro_reading = 0;
@@ -153,8 +154,9 @@ ISR(TIMER1_COMPA_vect)
 
   // Convert to sensible units
   float gyro_offset = ((gyro_offset_pot - 512) * 0.1);
+  float x_offset = ((x_offset_pot - 512) * 0.1);
   gyro_rads_per_sec =  GYRO_RAD_PER_ADC_UNIT * (512 - gyro_reading + gyro_offset);
-  x_gs = ACCEL_G_PER_ADC_UNIT * (x_reading - 512 + X_OFFSET);
+  x_gs = ACCEL_G_PER_ADC_UNIT * (x_reading - 512 + x_offset);
   float x_raw_gs = ACCEL_G_PER_ADC_UNIT * (x_reading - 512);
   y_gs = ACCEL_G_PER_ADC_UNIT * (y_reading - 512);
 
@@ -180,17 +182,17 @@ ISR(TIMER1_COMPA_vect)
   }
   else
   {
-    // The accelerometer isn't trustworthy if it's not reporting exactly 1G of
+    // The accelerometer isn't trustworthy if it's not reporting about 1G of
     // force (it must be picking up acceleration from the motors).
-    float g_factor = max(0, 1.0 - (100 * abs(1.0 - total_gs_sq))) * 0.05;
+    float g_factor = max(0, 1.0 - (100 * abs(1.0 - total_gs_sq))) * 0.02;
 
     tilt_rads_estimate = (1.0 - g_factor) * (tilt_rads_estimate + gyro_rads_per_sec * TICK_SECONDS) +
                          g_factor * x_gs;
     tilt_int_rads += tilt_rads_estimate;
 
-#define D_TILT_FACT 100.0
+#define D_TILT_FACT 200.0
 #define TILT_FACT 20000.0
-#define TILT_INT_FACT 0.0
+#define TILT_INT_FACT 10000.0
 
 #define MAX_TILT_INT (300.0 * GYRO_RAD_PER_ADC_UNIT / TILT_INT_FACT)
 
@@ -228,8 +230,8 @@ ISR(TIMER1_COMPA_vect)
     Serial.print(gyro_rads_per_sec, 4);
     Serial.print(" t");
     Serial.print(tilt_rads_estimate, 4);
-    Serial.print(" x");
-    Serial.print(x_reading);
+    Serial.print(" o");
+    Serial.print(x_offset, 4);
     Serial.print(" x");
     Serial.print(x_raw_gs, 4);
     Serial.print(" y");
@@ -274,7 +276,7 @@ ISR(TIMER1_COMPA_vect)
   }
   else if (loop_count == (TARGET_LOOP_HZ * 2 /3))
   {
-    tilt_pot = analogRead(A5);
+    x_offset_pot = analogRead(A5);
   }
   else if (loop_count == TARGET_LOOP_HZ)
   {
