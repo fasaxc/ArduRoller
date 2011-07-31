@@ -77,10 +77,10 @@ static float filterx(float in)
 {
   static float xv[NZEROS+1], yv[NPOLES+1];
   xv[0] = xv[1]; xv[1] = xv[2];
-  xv[2] = in / 1.058546241e+03;
+  xv[2] = in / 4.143204922e+03;
   yv[0] = yv[1]; yv[1] = yv[2];
-  yv[2] = (xv[0] + xv[2]) + 2 * xv[1]
-                          + ( -0.9149758348 * yv[0]) + (  1.9111970674 * yv[1]);
+  yv[2] =   (xv[0] + xv[2]) + 2 * xv[1]
+                       + ( -0.9565436765 * yv[0]) + (  1.9555782403 * yv[1]);
   return yv[2];
 }
 
@@ -142,6 +142,9 @@ ISR(TIMER1_COMPA_vect)
   long int motor_a_speed = 0;
   long int motor_b_speed = 0;
   static uint16_t counter = 0;
+#define NUM_G_SQ 3
+  static float total_gs_sq[NUM_G_SQ];
+  static int gs_idx = 0;
 
   // Read the inputs.  Each analog read should take about 0.12 msec.  We can't
   // do too many analog reads per timer tick.
@@ -162,7 +165,13 @@ ISR(TIMER1_COMPA_vect)
 
   x_filt_gs = filterx(x_gs);
 
-  float total_gs_sq = x_raw_gs * x_raw_gs + y_gs * y_gs;
+  total_gs_sq[gs_idx++] = abs(1.0 - (x_raw_gs * x_raw_gs + y_gs * y_gs));
+  if (gs_idx == NUM_G_SQ)
+  {
+    gs_idx = 0;
+  }
+
+  float max_gs_sq = 0;
 
   if (y_gs < 0.1 && abs(x_filt_gs) > 0.6)
   {
@@ -184,17 +193,24 @@ ISR(TIMER1_COMPA_vect)
   {
     // The accelerometer isn't trustworthy if it's not reporting about 1G of
     // force (it must be picking up acceleration from the motors).
-    float g_factor = max(0, 1.0 - (100 * abs(1.0 - total_gs_sq))) * 0.02;
+    for (int i = 0; i < NUM_G_SQ; i++)
+    {
+      if (total_gs_sq[i] > max_gs_sq)
+      {
+        max_gs_sq = total_gs_sq[i];
+      }
+    }
+    float g_factor = max(0.0, 1.0 - (15 * max_gs_sq)) * 0.02;
 
     tilt_rads_estimate = (1.0 - g_factor) * (tilt_rads_estimate + gyro_rads_per_sec * TICK_SECONDS) +
-                         g_factor * x_gs;
+                         g_factor * x_filt_gs;
     tilt_int_rads += tilt_rads_estimate;
 
-#define D_TILT_FACT 200.0
-#define TILT_FACT 20000.0
-#define TILT_INT_FACT 10000.0
+#define D_TILT_FACT 400.0
+#define TILT_FACT 15000.0
+#define TILT_INT_FACT 160.0
 
-#define MAX_TILT_INT (300.0 * GYRO_RAD_PER_ADC_UNIT / TILT_INT_FACT)
+#define MAX_TILT_INT (250.0 / TILT_INT_FACT)
 
     if (tilt_int_rads > MAX_TILT_INT)
     {
@@ -237,7 +253,7 @@ ISR(TIMER1_COMPA_vect)
     Serial.print(" y");
     Serial.print(y_gs, 4);
     Serial.print(" t");
-    Serial.print(total_gs_sq, 4);
+    Serial.print(max_gs_sq, 4);
     Serial.print(" s");
     Serial.print(speed);
     Serial.print('\n');
