@@ -22,7 +22,7 @@
 
 #define TARGET_LOOP_HZ (1000)
 #define TICKS_PER_LOOP (F_CPU / TARGET_LOOP_HZ)
-#define TICK_SECONDS ((float)TICKS_PER_LOOP / F_CPU)
+#define TICK_SECONDS (1.0 / TARGET_LOOP_HZ)
 
 // Arduino has a 10-bit ADC, giving a range of 0-1023.  0 represents GND, 1023
 // represents Vcc - 1 LSB.  Hence, 512 is the midpoint.
@@ -204,13 +204,13 @@ ISR(TIMER1_COMPA_vect)
 
     tilt_rads_estimate = (1.0 - g_factor) * (tilt_rads_estimate + gyro_rads_per_sec * TICK_SECONDS) +
                          g_factor * x_filt_gs;
-    tilt_int_rads += tilt_rads_estimate;
+    tilt_int_rads += tilt_rads_estimate * TICK_SECONDS;
 
-#define D_TILT_FACT 400.0
-#define TILT_FACT 15000.0
-#define TILT_INT_FACT 160.0
+#define D_TILT_FACT 250.0
+#define TILT_FACT 20000.0
+#define TILT_INT_FACT 20000.0
 
-#define MAX_TILT_INT (250.0 / TILT_INT_FACT)
+#define MAX_TILT_INT (0.1)
 
     if (tilt_int_rads > MAX_TILT_INT)
     {
@@ -242,10 +242,6 @@ ISR(TIMER1_COMPA_vect)
   {
     Serial.print('g');
     Serial.print(gyro_reading);
-    Serial.print(" f");
-    Serial.print(gyro_rads_per_sec, 4);
-    Serial.print(" t");
-    Serial.print(tilt_rads_estimate, 4);
     Serial.print(" o");
     Serial.print(x_offset, 4);
     Serial.print(" x");
@@ -254,6 +250,12 @@ ISR(TIMER1_COMPA_vect)
     Serial.print(y_gs, 4);
     Serial.print(" t");
     Serial.print(max_gs_sq, 4);
+    Serial.print(" f");
+    Serial.print(gyro_rads_per_sec, 4);
+    Serial.print(" t");
+    Serial.print(tilt_rads_estimate, 4);
+    Serial.print(" i");
+    Serial.print(tilt_int_rads);
     Serial.print(" s");
     Serial.print(speed);
     Serial.print('\n');
