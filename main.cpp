@@ -210,7 +210,7 @@ ISR(TIMER1_COMPA_vect)
 #define TILT_FACT 20000.0
 #define TILT_INT_FACT 20000.0
 
-#define MAX_TILT_INT (0.1)
+#define MAX_TILT_INT (0.2)
 
     if (tilt_int_rads > MAX_TILT_INT)
     {
