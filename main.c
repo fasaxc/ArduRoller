@@ -13,11 +13,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#include "fixp.h"
 #include <stdlib.h>
 #include <stdbool.h>
 #include <math.h> // Make sure we pick up the optimized AVR math lib.
 #include <stdint.h>
-#include "fixp.h"
 #include <stdfix.h>
 #include <avr/interrupt.h>
 #include "pins.h"
@@ -25,23 +25,22 @@
 
 #define TARGET_LOOP_HZ (500)
 #define TICKS_PER_LOOP (F_CPU / TARGET_LOOP_HZ)
-#define TICK_SECONDS (1.0k / TARGET_LOOP_HZ)
-
+#define TICK_SECONDS (ACC_LITERAL(1.0) / TARGET_LOOP_HZ)
 
 // Calculate the scaling factor from gyro ADC reading to radians.  The gyro is
 // ratiometric with Vs but it doesn't use the full range.
 #define RADIANS_PER_DEGREE 0.0174532925
-#define V_PER_ADC_UNIT (0.0048828125lr)
-#define GYRO_MAX_DEG_PER_SEC (150.0k)      // From gyro datasheet
-#define GYRO_V_PER_DEG_PER_SEC (0.01125k)  // Calibrated value from datasheet.
-#define GYRO_DEG_PER_ADC_UNIT (0.434027777k) // V_PER_ADC_UNIT / GYRO_V_PER_DEG_PER_SEC
-#define GYRO_RAD_PER_ADC_UNIT (0.007575213759k) // (GYRO_DEG_PER_ADC_UNIT * RADIANS_PER_DEGREE)
+#define V_PER_ADC_UNIT (FRACT_LITERAL(0.0048828125l))
+#define GYRO_MAX_DEG_PER_SEC (ACC_LITERAL(150.0))      // From gyro datasheet
+#define GYRO_V_PER_DEG_PER_SEC (ACC_LITERAL(0.01125))  // Calibrated value from datasheet.
+#define GYRO_DEG_PER_ADC_UNIT (ACC_LITERAL(0.434027777)) // V_PER_ADC_UNIT / GYRO_V_PER_DEG_PER_SEC
+#define GYRO_RAD_PER_ADC_UNIT (ACC_LITERAL(0.007575213759)) // (GYRO_DEG_PER_ADC_UNIT * RADIANS_PER_DEGREE)
 
 // Calculate the scaling factor from ADC readings to g.
 //
 // The accelerometer is ratiometric with Vs but it doesn't use the full range
 // from GND to Vs.  At Vs = 5V, it reads about 1V per g.
-#define ACCEL_V_PER_G (1.0k)
+#define ACCEL_V_PER_G (ACC_LITERAL(1.0))
 #define ACCEL_G_PER_ADC_UNIT (V_PER_ADC_UNIT / ACCEL_V_PER_G)
 
 // EEPROM addresses
@@ -52,7 +51,7 @@
 
 // Default gyro offset used if no calibration has been done.  Unique to each
 // gyro.
-#define GYRO_OFFSET (3.982k * GYRO_RAD_PER_ADC_UNIT)
+#define GYRO_OFFSET (ACC_LITERAL(3.982) * GYRO_RAD_PER_ADC_UNIT)
 
 // Allowances for mechanical differences in motors
 #define MOTOR_A_FACTOR 1
@@ -64,16 +63,16 @@ static uint16_t x_offset_pot = 512;
 static uint16_t gyro_offset_pot = 512;
 
 static accum sat gyro_offset = GYRO_OFFSET;
-static accum sat accel_fact = 1k;
+static accum sat accel_fact = ACC_LITERAL(1);
 static bool reset_complete = false;
 
-static accum sat tilt_rads_estimate = 0k;
-static accum sat tilt_int_rads = 0k;
+static accum sat tilt_rads_estimate = ACC_LITERAL(0);
+static accum sat tilt_int_rads = ACC_LITERAL(0);
 
 // High water mark for timer values at the end of our ISR.
 static long int max_timer = 0;
 
-static accum sat speed = 0k;
+static accum sat speed = ACC_LITERAL(0);
 
 #define NUM_G_SQ 3
 static accum sat total_gs_sq[NUM_G_SQ];
@@ -84,7 +83,7 @@ static long int loop_count = 0;
 // true if an error has occurred like a timer overflow.
 static bool error = false;
 
-#define ABS(x) ((x) < 0k ? -(x) : (x))
+#define ABS(x) ((x) < ACC_LITERAL(0) ? -(x) : (x))
 
 // Filter orders.
 #define NZEROS 2
@@ -98,10 +97,10 @@ static accum sat filterx(accum sat in)
 {
   static accum sat xv[NZEROS+1], yv[NPOLES+1];
   xv[0] = xv[1]; xv[1] = xv[2];
-  xv[2] = in / 1.058546241e+03k;
+  xv[2] = in / ACC_LITERAL(1.058546241e+03);
   yv[0] = yv[1]; yv[1] = yv[2];
-  yv[2] =   (xv[0] + xv[2]) + 2k * xv[1]
-                        + ( -0.9149758348k * yv[0]) + (  1.9111970674k * yv[1]);
+  yv[2] =   (xv[0] + xv[2]) + ACC_LITERAL(2) * xv[1]
+                        + ( -ACC_LITERAL(0.9149758348) * yv[0]) + (  ACC_LITERAL(1.9111970674) * yv[1]);
   return yv[2];
 }
 
@@ -134,7 +133,7 @@ ISR(TIMER1_COMPA_vect)
 
   // While we're waiting for the X value, convert the gyro value to rads.
   accum sat gyro_rads_per_sec = GYRO_RAD_PER_ADC_UNIT *
-                                (512k - (accum sat)raw_gyro_value);
+                                (ACC_LITERAL(512) - (accum sat)raw_gyro_value);
   gyro_rads_per_sec -= gyro_offset;
 
   uint16_t raw_x_value = wait_for_adc_result();
@@ -143,10 +142,10 @@ ISR(TIMER1_COMPA_vect)
   START_ADC(Y_APIN);
 
   // While we're waiting, convert the X value...
-  accum sat x_gs = ((accum sat)ACCEL_G_PER_ADC_UNIT) * (raw_x_value - 512k);
+  accum sat x_gs = ((accum sat)ACCEL_G_PER_ADC_UNIT) * (raw_x_value - ACC_LITERAL(512));
 
   uint16_t raw_y_value = wait_for_adc_result();
-  accum sat y_gs = ((accum sat)ACCEL_G_PER_ADC_UNIT) * (raw_y_value - 512k);
+  accum sat y_gs = ((accum sat)ACCEL_G_PER_ADC_UNIT) * (raw_y_value - ACC_LITERAL(512));
 
   // Start the ADC in the background while we do the rest of the processing.
   if (loop_count == TARGET_LOOP_HZ / 3) {
@@ -164,26 +163,26 @@ ISR(TIMER1_COMPA_vect)
 
   // Our constant rotation to apply to the accelerometer.  Sets the 0-tilt
   // angle.
-  accum sat accel_rotation = ((accum sat)(x_offset_pot - 512) * 0.001k);
+  accum sat accel_rotation = ((accum sat)(x_offset_pot - 512) * ACC_LITERAL(0.001));
 
   // Estimate the tilt from the accelerometer alone.  We'll factor in a fraction
   // of this below.
   accum sat accel_tilt_estimate = x_filt_gs + accel_rotation;
 
   accum sat gs_sq = (x_gs * x_gs + y_gs * y_gs);
-  total_gs_sq[gs_idx++] = ABS(1.0k - gs_sq * accel_fact * accel_fact);
+  total_gs_sq[gs_idx++] = ABS(ACC_LITERAL(1.0) - gs_sq * accel_fact * accel_fact);
   if (gs_idx == NUM_G_SQ)
   {
     gs_idx = 0;
   }
 
-  if ((y_gs < 0.1k) && ((x_filt_gs > -0.6k) || (x_filt_gs < 0.6k))) {
+  if ((y_gs < ACC_LITERAL(0.1)) && ((x_filt_gs > -ACC_LITERAL(0.6)) || (x_filt_gs < ACC_LITERAL(0.6)))) {
     // We fell over! Shut off the motors.
     speed = 0;
     reset_complete = false;
   } else if (!reset_complete) {
     // We've never been upright, wait until we're righted by the user.
-    if (-0.02k < x_gs && x_gs < 0.02k) {
+    if (-ACC_LITERAL(0.02) < x_gs && x_gs < ACC_LITERAL(0.02)) {
       tilt_rads_estimate = accel_tilt_estimate;
       speed = 0;
       tilt_int_rads = 0;
@@ -191,15 +190,15 @@ ISR(TIMER1_COMPA_vect)
     }
   } else {
     // Normal operation!
-#define g_factor (0.0005k)
-    tilt_rads_estimate = (1.0k - g_factor)
+#define g_factor (ACC_LITERAL(0.0005))
+    tilt_rads_estimate = (ACC_LITERAL(1.0) - g_factor)
         * (tilt_rads_estimate + gyro_rads_per_sec * (accum sat)TICK_SECONDS)
         + g_factor * accel_tilt_estimate;
     tilt_int_rads += tilt_rads_estimate * (accum sat)TICK_SECONDS;
 
-#define D_TILT_FACT 200.0k
-#define TILT_FACT 5000.0k
-#define TILT_INT_FACT 50000.0k
+#define D_TILT_FACT ACC_LITERAL(1.0)
+#define TILT_FACT ACC_LITERAL(200.0)
+#define TILT_INT_FACT ACC_LITERAL(500.0)
 
 #define MAX_TILT_INT (0.015)
 
@@ -220,11 +219,11 @@ ISR(TIMER1_COMPA_vect)
   }
 
   // Set the motor directions
-  WRITE_PIN(DIR_A_PORT, DIR_A_PIN, speed < 0k ? PIN_OFF : PIN_ON);
-  WRITE_PIN(DIR_B_PORT, DIR_B_PIN, speed < 0k ? PIN_OFF : PIN_ON);
+  WRITE_PIN(DIR_A_PORT, DIR_A_PIN, speed < 0 ? PIN_OFF : PIN_ON);
+  WRITE_PIN(DIR_B_PORT, DIR_B_PIN, speed < 0 ? PIN_OFF : PIN_ON);
 
   // Set the motor speeds.
-  accum sat abs_speed = 7k * (speed < 0k ? -speed : speed);
+  accum sat abs_speed = ACC_LITERAL(7) * (speed < ACC_LITERAL(0) ? -speed : speed);
   if (abs_speed > 0xff) {
     abs_speed = 0xff;
   }
@@ -310,7 +309,7 @@ void setup() {
 }
 
 void loop() {
-
+  __asm__("NOP");
 }
 
 int main() {
