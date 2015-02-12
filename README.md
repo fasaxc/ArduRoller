@@ -21,14 +21,14 @@ Specs:
 Code
 ----
 
-The code is in main.cpp.  I develop in Eclipse rather than the Arduino IDE but
-it should still work if you copy and paste into the Arduino IDE as a sketch.
+The code is in main.c.  The code only depends on avr-libc and it includes 
+the proect files for the AVR plugin for Eclipse.
 
 The code has 3 parts:
 
-*  *setup()* the standard Arduino setup routine, run once at start of day.
-*  *loop()* the standard Arduino loop function, does nothing by default.
-*  *ISR(TIMER1_OVF_vect)* the interrupt service routine for the timer 1 interrupt.
+* `main()` is the entry point, which runs
+* `setup()` which does start-of-day initialization.
+*  `ISR(TIMER1_OVF_vect)` the interrupt service routine for the timer 1 interrupt.
    The ISR is the main workhorse function.  It runs several hundred times per 
    second. 
 
