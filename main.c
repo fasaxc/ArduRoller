@@ -142,10 +142,12 @@ ISR(TIMER1_COMPA_vect)
   START_ADC(Y_APIN);
 
   // While we're waiting, convert the X value...
-  accum sat x_gs = ((accum sat)ACCEL_G_PER_ADC_UNIT) * (raw_x_value - ACC_LITERAL(512));
+  accum sat x_gs = ((accum sat)ACCEL_G_PER_ADC_UNIT) *
+                    (raw_x_value - ACC_LITERAL(512));
 
   uint16_t raw_y_value = wait_for_adc_result();
-  accum sat y_gs = ((accum sat)ACCEL_G_PER_ADC_UNIT) * (raw_y_value - ACC_LITERAL(512));
+  accum sat y_gs = ((accum sat)ACCEL_G_PER_ADC_UNIT) *
+                    (raw_y_value - ACC_LITERAL(512));
 
   // Start the ADC in the background while we do the rest of the processing.
   if (loop_count == TARGET_LOOP_HZ / 3) {
@@ -159,11 +161,12 @@ ISR(TIMER1_COMPA_vect)
   // Filter the inputs from the accelerometer to try to reduce the impact of
   // vibration and acceleration from any movements the bot is making.
   accum sat x_filt_gs = filterx(x_gs) * accel_fact;
-  //accum sat y_filt_gs = filtery(y_gs) * accel_fact;
+  // accum sat y_filt_gs = filtery(y_gs) * accel_fact;
 
   // Our constant rotation to apply to the accelerometer.  Sets the 0-tilt
   // angle.
-  accum sat accel_rotation = ((accum sat)(x_offset_pot - 512) * ACC_LITERAL(0.001));
+  accum sat accel_rotation = ((accum sat)(x_offset_pot - 512) *
+                              ACC_LITERAL(0.001));
 
   // Estimate the tilt from the accelerometer alone.  We'll factor in a fraction
   // of this below.
@@ -196,11 +199,11 @@ ISR(TIMER1_COMPA_vect)
         + g_factor * accel_tilt_estimate;
     tilt_int_rads += tilt_rads_estimate * (accum sat)TICK_SECONDS;
 
-#define D_TILT_FACT ACC_LITERAL(1.0)
-#define TILT_FACT ACC_LITERAL(200.0)
-#define TILT_INT_FACT ACC_LITERAL(500.0)
+#define D_TILT_FACT ACC_LITERAL(16.0)
+#define TILT_FACT ACC_LITERAL(400.0)
+#define TILT_INT_FACT ACC_LITERAL(100.0)
 
-#define MAX_TILT_INT (0.015)
+#define MAX_TILT_INT (0.01)
 
     if (tilt_int_rads > (accum sat)MAX_TILT_INT) {
       tilt_int_rads = (accum sat)MAX_TILT_INT;
@@ -219,13 +222,26 @@ ISR(TIMER1_COMPA_vect)
   }
 
   // Set the motor directions
-  WRITE_PIN(DIR_A_PORT, DIR_A_PIN, speed < 0 ? PIN_OFF : PIN_ON);
-  WRITE_PIN(DIR_B_PORT, DIR_B_PIN, speed < 0 ? PIN_OFF : PIN_ON);
+  if (speed < 0) {
+    WRITE_PIN(DIR_A_PORT, DIR_A_PIN, PIN_OFF);
+    WRITE_PIN(DIR_B_PORT, DIR_B_PIN, PIN_OFF);
+  } else {
+    WRITE_PIN(DIR_A_PORT, DIR_A_PIN, PIN_ON);
+    WRITE_PIN(DIR_B_PORT, DIR_B_PIN, PIN_ON);
+  }
 
   // Set the motor speeds.
-  accum sat abs_speed = ACC_LITERAL(7) * (speed < ACC_LITERAL(0) ? -speed : speed);
-  if (abs_speed > 0xff) {
-    abs_speed = 0xff;
+  accum sat abs_speed = ABS(speed);
+  if (abs_speed > 0 && abs_speed < 10) {
+    abs_speed *= 10;
+  } else if (abs_speed < 20) {
+    abs_speed *= 5;
+    abs_speed += 90;
+  } else {
+    abs_speed += 170;
+    if (abs_speed > 0xff) {
+      abs_speed = 0xff;
+    }
   }
 
   uint8_t motor_a_speed = (uint8_t)abs_speed;
